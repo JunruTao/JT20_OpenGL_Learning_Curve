@@ -1,7 +1,6 @@
 #include <iostream>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
 //#############################################/
 /*.............ANOUNCEMENTS start..............*/
 /*
@@ -19,6 +18,7 @@
 /*Window Dimensions*/
 const GLint Width = 800;
 const GLint Height = 600;
+
 
 int main()   
 {
