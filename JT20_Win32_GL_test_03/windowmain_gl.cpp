@@ -232,6 +232,7 @@ int WINAPI WinMain(
     glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
 
 
+
     /*[PART 2.3]----THE 'BIG WHILE LOOP'----*/
     while (running)
     {
@@ -281,8 +282,9 @@ int WINAPI WinMain(
         SwapBuffers(dvcContext);
     }
 
-
-
+    glDeleteTextures(1,&color_tex);
+    glDeleteTextures(1, &depth_tex);
+    glDeleteFramebuffers(1, &framebuffer);
     return 0;
 }
 /*------------------------------------------------- */
