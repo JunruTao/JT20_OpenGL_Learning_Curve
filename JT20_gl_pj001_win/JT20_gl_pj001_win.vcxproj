@@ -93,7 +93,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)/../ExternalLibraries/GLFW32/include;$(SolutionDir)/../ExternalLibraries/GLEW/include;$(ProjectDir)/header;$(ProjectDir)/source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)/../ExternalLibraries/GLM/;$(SolutionDir)/../ExternalLibraries/GLFW32/include;$(SolutionDir)/../ExternalLibraries/GLEW/include;$(ProjectDir)/header;$(ProjectDir)/source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -126,7 +126,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)/../ExternalLibraries/GLFW32/include;$(SolutionDir)/../ExternalLibraries/GLEW/include;$(ProjectDir)/header;$(ProjectDir)/source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)/../ExternalLibraries/GLM/;$(SolutionDir)/../ExternalLibraries/GLFW32/include;$(SolutionDir)/../ExternalLibraries/GLEW/include;$(ProjectDir)/header;$(ProjectDir)/source;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

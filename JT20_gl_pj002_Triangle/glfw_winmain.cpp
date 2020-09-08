@@ -1,7 +1,6 @@
 #include <iostream>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
 #include "ObjectsCore.h"
 #include "GL_Create_Geometries.h"
 #include "GL_Shader_Functions.h"
