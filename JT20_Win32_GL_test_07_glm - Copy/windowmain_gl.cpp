@@ -4,7 +4,6 @@
 #include <GL/glew.h>
 #include <SOIL/SOIL.h>
 
-
 #include "glm/glm.hpp"
 #include "glm/common.hpp"
 #include "glm/ext.hpp"
@@ -12,15 +11,14 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 
-
 #include <thread>
 #include <chrono>
+#include <cmath>
 
-static GLuint program1 = 0;
+
 
 
 #define GLSL(src) "#version 440\n" #src
-void shaderAttach(GLuint program, GLenum type, char* shaderSource = NULL);
 
 const char* vertexShaderSrc = GLSL(
 	in vec3 pos;
@@ -31,10 +29,12 @@ const char* vertexShaderSrc = GLSL(
 
 	void main()
 	{
-		gl_Position = vec4(pos.xyz, 1.0) * MVP;
+		gl_Position = vec4(pos.xyz, 1.0)*MVP;
 		texOut = tex;
 	}
 );
+
+
 
 // Fragment shader 1
 const char* fragmentShaderSrc_N1 = GLSL(
@@ -43,7 +43,6 @@ const char* fragmentShaderSrc_N1 = GLSL(
 	uniform sampler2D colorMap0;
 	out vec4 FragColor;
 	
-
 	void main()
 	{
 		vec2 temp = texOut.yx;
@@ -58,95 +57,84 @@ const char* fragmentShaderSrc_N1 = GLSL(
 // Fragment shader 2
 const char* fragmentShaderSrc_N2 = GLSL(
 	uniform float Scale;
-	uniform float Blur;
 	uniform float Xsize;
 	uniform float Ysize;
 	in vec2 texOut;
-	uniform sampler2D colorMap0;
+
+	uniform sampler2D colorMap1;
+	uniform sampler2D bnwMap1;
 	uniform sampler2D depthMap1;
+
 	out vec4 FragColor;
 
 void main()
 {
+	float Blur = 30.0f;
 	vec2 temp = texOut.yx;
 	vec2 temp1 = temp;
-	vec4 tempColor0 = texture(colorMap0, temp1);
-	vec4 tempColor2 = tempColor0;
+	vec4 tempColor0 = texture(colorMap1, temp1);
+	vec4 tempColorBnW = texture(bnwMap1, temp1);
 
-	float pBlur = Blur;
-	for (int xBlur = 1; xBlur <= pBlur; ++xBlur) {
-		for (int yBlur = 1; yBlur <= pBlur; ++yBlur) {
-			temp1.x = temp.x + (xBlur / Xsize);
-			temp1.y = temp.y + (yBlur / Ysize);
-			vec4 tempColor1 = texture(colorMap0, temp1.xy);
-			tempColor0 = tempColor0 + tempColor1;
+	for (float xBlur = 1.0f; xBlur <= Blur; xBlur++) 
+	{
+		for (float yBlur = 1.0f; yBlur <= Blur; yBlur++) 
+		{
+			temp1.x = -xBlur / Xsize + temp.x;
+			temp1.y = -yBlur / Ysize + temp.y;
+			vec4 tempColor1 = texture(bnwMap1, temp1.xy);
+
+			temp1.x = xBlur / Xsize + temp.x;
+			temp1.y = -yBlur / Ysize + temp.y;
+			vec4 tempColor2 = texture(bnwMap1, temp1.xy);
+
+			temp1.x = -xBlur / Xsize + temp.x;
+			temp1.y = yBlur / Ysize + temp.y;
+			vec4 tempColor3 = texture(bnwMap1, temp1.xy);
+
+			temp1.x = xBlur / Xsize + temp.x;
+			temp1.y = yBlur / Ysize + temp.y;
+			vec4 tempColor4 = texture(bnwMap1, temp1.xy);
+
+			tempColorBnW = tempColorBnW + (tempColor1+ tempColor2 + tempColor3 + tempColor4)/4;
 		}
 	}
 
-	vec4 tempColor3 = texture(depthMap1, texOut.xy);
-	tempColor0 = tempColor2 * (1- tempColor3.x) + (tempColor3.x * (tempColor0 / (pBlur * pBlur)));
-	//if ((tempColor0[0] + tempColor0[1] + tempColor0[2]) / 3 < 0.5) { tempColor0 = vec4(0,0,0,0); }
-	FragColor = tempColor0;
+	tempColorBnW[0] = (tempColorBnW[0] + tempColorBnW[1] + tempColorBnW[2]) / 3.0f;
+	tempColorBnW[1] = tempColorBnW[0];
+	tempColorBnW[2] = tempColorBnW[0];
+
+	//vec4 tempColor3 = texture(depthMap1, texOut.yx);
+	//tempColor0 = tempColor2 * (tempColor3.x) + ((1 - tempColor3.x) * (tempColor0 / (Blur * Blur)));
+	tempColorBnW = tempColorBnW / (Blur * Blur);
+	FragColor = tempColor0+ tempColorBnW*1.6;
+
+	//vec2 temp = texOut.yx;
+	//vec2 temp1 = temp;
+	//vec4 tempColor0 = texture(colorMap1, temp1);
+	//vec4 tempColor2 = tempColor0;
+	//vec4 zdepth = texture(depthMap1, texOut.yx);
+	//float b = zdepth.r;
+	//int counter = 0;
+	//for (float xBlur = -b; xBlur < b; xBlur + 1)
+	//{
+	//	for (float yBlur = -b; yBlur < b; yBlur + 1)
+	//	{
+	//		counter++;
+	//		temp1.x = xBlur + temp.x;
+	//		temp1.y = yBlur + temp.y;
+	//		tempColor0 = tempColor0 + texture(colorMap1, temp1.xy);
+	//	}
+	//}
+
+	//tempColor0 = tempColor0 / counter;
+	//FragColor = tempColor0;
 
 }
 );
 
 
-// Fragment shader 3
-const char* fragmentShaderSrc_N3 = GLSL(
-	uniform float Scale;
-uniform float Blur;
-uniform float Xsize;
-uniform float Ysize;
-in vec2 texOut;
-uniform sampler2D colorMap1;
-out vec4 FragColor;
-
-void main()
-{
-	vec2 temp = texOut.yx;
-	vec2 temp1 = temp;
-	vec4 tempColor0 = texture(colorMap1, temp);
-	vec4 tempColor1 = texture(colorMap1, temp);
-
-
-	temp1.x = temp.x + (Blur / Xsize);
-	temp1.y = temp.y + (Blur / Ysize);
-	vec4 tempColor1 = texture(colorMap1, temp1);
-	temp1.x = temp.x - (Blur / Xsize);
-	temp1.y = temp.y + (Blur / Ysize);
-	vec4 tempColor2 = texture(colorMap1, temp1);
-	temp1.x = temp.x - (Blur / Xsize);
-	temp1.y = temp.y - (Blur / Ysize);
-	vec4 tempColor3 = texture(colorMap1, temp1);
-	temp1.x = temp.x + (Blur / Xsize);
-	temp1.y = temp.y - (Blur / Ysize);
-	vec4 tempColor4 = texture(colorMap1, temp1);
-
-	temp1.x = temp.x + (Blur / Xsize);
-	temp1.y = temp.y;
-	vec4 tempColor5 = texture(colorMap1, temp1);
-	temp1.x = temp.x - (Blur / Xsize);
-	temp1.y = temp.y;
-	vec4 tempColor6 = texture(colorMap1, temp1);
-	temp1.x = temp.x;
-	temp1.y = temp.y - (Blur / Ysize);
-	vec4 tempColor7 = texture(colorMap1, temp1);
-	temp1.x = temp.x;
-	temp1.y = temp.y - (Blur / Ysize);
-	vec4 tempColor8 = texture(colorMap1, temp1);
-
-
-	tempColor0 = (tempColor0 + tempColor1 + tempColor2 + tempColor3 + tempColor4 + tempColor5 + tempColor6 + tempColor7 + tempColor8) / 9.0f;
-	if ((tempColor0[0] + tempColor0[1] + tempColor0[2]) / 3 < 0.8) { tempColor0 = 0; }
-
-	temp.x += sin(Scale);
-	temp.y += cos(Scale);
-	FragColor = tempColor0;
-
-}
-);
-
+static GLuint program1 = 0;
+static GLuint program2 = 0;
 
 HDC dvcContext; //where to store pixel data
 HGLRC rdrContext; //handle to OpenGL context
@@ -157,8 +145,6 @@ LPCWSTR JT_MAIN_WIN_NAME = L"JT20 Test Window"; //  <---- Used in the *Creation*
 LPCWSTR parentCapTitle = L"JT-2020 First Window"; //  <---- Used in the *CAPTION*(Text on the window) of {_parent_window_}
 LPCWSTR Error01 = L"Error 01: RegisterClassW issue tend to ";
 LPCWSTR Error02 = L"Error 02: ParentWindowCreateW issue to tend to"; //  <---- *Error handling message* of {_parent_window_}
-
-
 
 
 GLuint ShaderCompile(const GLenum shader_type, const char* source)
@@ -242,8 +228,6 @@ GLuint CreateCustomProgram(const char* VertexSource, const char* FragmentSource)
 }
 
 
-
-
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
 
 
@@ -307,20 +291,63 @@ int WINAPI WinMain(
 		float x, y, z, u, v;        //Vertex
 	};
 
-	static float bsize = 0.7f;
-	MyVertex pvertex[8] =
+	static float bsize = 0.5f;
+
+	MyVertex pvertex[24] =
 	{
-		{-bsize,bsize,1,0,0},{bsize,bsize,1,0,1},{bsize,-bsize,0,1,1},{-bsize,-bsize,0,1,0},
-		{ -0.9f,0.9f,0,0,0 },
-		{ 0.9f,0.9f,0,0,1.0f },
-		{ 0.9f,-0.9f,0,1.0f,1.0f },
-		{ -0.9f,-0.9f,0,1.0f,0 }
+		//front
+		{-bsize,bsize,bsize,0.0f,0.0f},{bsize,bsize,bsize,0.0f,1.0f},
+		{bsize,-bsize,bsize,1.0f,1.0f},{-bsize,-bsize,bsize,1.0f,0.0f},
+		//back
+		{-bsize,bsize,-bsize,0.0f,0.0f},{bsize,bsize,-bsize,0.0f,1.0f},
+		{bsize,-bsize,-bsize,1.0f,1.0f},{-bsize,-bsize,-bsize,1.0f,0.0f},
+		//top
+		{-bsize,bsize,bsize,0.0f,0.0f},{bsize,bsize,bsize,0.0f,1.0f},
+		{bsize,bsize,-bsize,1.0f,1.0f},{-bsize,bsize,-bsize,1.0f,0.0f},
+		//bottom
+		{-bsize,-bsize,bsize,0.0f,0.0f},{bsize,-bsize,bsize,0.0f,1.0f},
+		{bsize,-bsize,-bsize,1.0f,1.0f},{-bsize,-bsize,-bsize,1.0f,0.0f},
+		//left
+		{-bsize,bsize,-bsize,0.0f,0.0f},{-bsize,bsize,bsize,0.0f,1.0f},
+		{-bsize,-bsize,bsize,1.0f,1.0f},{-bsize,-bsize,-bsize,1.0f,0.0f},
+		//right
+		{bsize,bsize,-bsize,0.0f,0.0f},{bsize,bsize,bsize,0.0f,1.0f},
+		{bsize,-bsize,bsize,1.0f,1.0f},{bsize,-bsize,-bsize,1.0f,0.0f},
 	};
 
 	GLuint VertexVBOID = 0;
 	glGenBuffers(1, &VertexVBOID);
 	glBindBuffer(GL_ARRAY_BUFFER, VertexVBOID);
-		glBufferData(GL_ARRAY_BUFFER, sizeof(pvertex), &pvertex[0].x, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(pvertex), &pvertex[0].x, GL_STATIC_DRAW);
+
+
+	MyVertex screen[4] =
+	{
+		{ -1.0f,1.0f,0,0,0 },
+		{ 1.0f,1.0f,0,0,1.0f },
+		{ 1.0f,-1.0f,0,1.0f,1.0f },
+		{ -1.0f,-1.0f,0,1.0f,0 }
+	};
+	GLuint screenVBOID = 1;
+	glGenBuffers(1, &screenVBOID);
+	glBindBuffer(GL_ARRAY_BUFFER, screenVBOID);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(screen), &screen[0].x, GL_STATIC_DRAW);
+
+
+	MyVertex shade_GEO[6] =
+	{
+		{ -1.0f,0.0f,-1.0f,0,0 },
+		{ 1.0f,0.3f,-1.0f,1,1.0f },
+		{ 1.0f,-0.4f,-1.0f,0.0f,1.0f },
+
+		{ -1.0f,1.0f,-1.0f,0,0 },
+		{ 1.0f,1.0f,-1.0f,1,1.0f },
+		{ 0.2f,-0.1f,-1.0f,0.0f,1.0f },
+	};
+	GLuint shadeVBOID = 1;
+	glGenBuffers(1, &shadeVBOID);
+	glBindBuffer(GL_ARRAY_BUFFER, shadeVBOID);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(shade_GEO), &shade_GEO[0].x, GL_STATIC_DRAW);
 
 	GLuint texture = SOIL_load_OGL_texture(
 		"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_06_blurscreen/hello.png", 
@@ -333,8 +360,61 @@ int WINAPI WinMain(
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
+	GLuint texture2 = SOIL_load_OGL_texture(
+		"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_07_glm - Copy/hello2.png",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+
+	glBindTexture(GL_TEXTURE_2D, texture2);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+
+	//generating a frame buffer
+	
+	GLuint color_tex, bw_tex, depth_tex, framebuffer;
+	glGenFramebuffersEXT(1, &framebuffer);
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer);
 
 
+	glGenTextures(1, &color_tex);
+	glBindTexture(GL_TEXTURE_2D, color_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 800, 600, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, color_tex, 0/*mipmap level*/);
+
+	glGenTextures(1, &bw_tex);
+	glBindTexture(GL_TEXTURE_2D, bw_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 800, 600, 0, GL_BGRA, GL_UNSIGNED_BYTE, NULL);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT1_EXT, GL_TEXTURE_2D, bw_tex, 0/*mipmap level*/);
+
+	glGenTextures(1, &depth_tex);
+	glBindTexture(GL_TEXTURE_2D, depth_tex);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24, 800, 600, 0, GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, NULL);
+	glBindTexture(GL_TEXTURE_2D, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_TEXTURE_2D, depth_tex, 0/*mipmap level*/);
+
+	//if drawing 2 color buffer, you need to use the method bellow
+	GLenum buffers[] = { GL_COLOR_ATTACHMENT0_EXT, GL_COLOR_ATTACHMENT1_EXT };
+	glDrawBuffers(2, buffers);
+	
+	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+
+	
 	bool running = true;
 
 	/*[PART 2.3]----THE 'BIG WHILE LOOP'----*/
@@ -356,35 +436,41 @@ int WINAPI WinMain(
 		}
 
 		//drawing the background
-
 		glClearDepth(1.0f);
 		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-		GLint posAttrib = glGetAttribLocation(program1, "pos");
-		glEnableVertexAttribArray(posAttrib);
-		glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer);
 
-		GLint texAttrib = glGetAttribLocation(program1, "tex");
-		glEnableVertexAttribArray(texAttrib);
-		glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*)(3 * sizeof(float)));
+				glEnable(GL_DEPTH_TEST);
+				glClearDepth(1.0f);
+				
+				glClearColor(0.01f, 0.01f, 0.01f, 1.0f);
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-				glUseProgram(program1);
+			glUseProgram(program1);
 
+
+				glBindBuffer(GL_ARRAY_BUFFER, VertexVBOID);
+				GLint posAttrib = glGetAttribLocation(program1, "pos");
+				glEnableVertexAttribArray(posAttrib);
+				glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
+
+				GLint texAttrib = glGetAttribLocation(program1, "tex");
+				glEnableVertexAttribArray(texAttrib);
+				glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*)(3 * sizeof(float)));
 				static GLint locScale = glGetUniformLocation(program1, "Scale");
-
-
-				GLint locMatrixID = glGetUniformLocation(program1, "MVP");
-				glm::mat4 mat = glm::mat4(1.0);
-				mat = glm::rotate(mat, glm::radians(40.0f), glm::vec3(0, 1, 0));
-				glUniformMatrix4fv(posAttrib, 1, GL_FALSE, glm::value_ptr(mat));
-
 
 				static float Scale1 =  0;
 				static float Dir = 1;
-				if (1 < Scale1 || Scale1 < 0) Dir *= -1;
-				Scale1 += Dir * 0.02f;
+				Scale1 += Dir;
 				glUniform1f(locScale, Scale1);
+
+
+				glm::mat4 mat = glm::mat4(1.0f);
+				mat = glm::rotate<float>(mat, glm::radians(Scale1*2.0f), glm::vec3(1, 1, 0));
+				//mat = glm::scale(mat, glm::vec3(sinf(Scale1*0.08f)*0.4+0.8f, 0.9f, sinf(Scale1 * 0.18f) * 0.4 + 0.8f));
+				glUniformMatrix4fv(posAttrib, 1, GL_FALSE, glm::value_ptr(mat));
 
 				//finally drawing the geometry
 
@@ -393,18 +479,81 @@ int WINAPI WinMain(
 				GLint gli = glGetUniformLocation(program1, "colorMap0");
 				glUniform1i(gli, 0);//set colormap value 0
 
-				glDrawArrays(GL_QUADS, 0, 4);
+				glDrawArrays(GL_QUADS, 0, 24);
 				glBindTexture(GL_TEXTURE_2D, 0);
+				glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+				//glBindBuffer(GL_ARRAY_BUFFER, shadeVBOID);
+				//	GLint posAttrib_shade = glGetAttribLocation(program1, "pos");
+				//	glEnableVertexAttribArray(posAttrib_shade);
+				//	glVertexAttribPointer(posAttrib_shade, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
+
+				//	glm::mat4 mat_x = glm::mat4(1.0f);
+				//	glUniformMatrix4fv(posAttrib, 1, GL_FALSE, glm::value_ptr(mat_x));
+
+				//glDrawArrays(GL_TRIANGLES, 0, 6);
+				//glBindBuffer(GL_ARRAY_BUFFER, 0);
 				glUseProgram(0);
-		
+
+			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, 0);
+			
+
+
+
+
+		glUseProgram(program2);
+
+		glBindBuffer(GL_ARRAY_BUFFER, screenVBOID);
+		GLint posAttrib2 = glGetAttribLocation(program2, "pos");
+		glEnableVertexAttribArray(posAttrib2);
+		glVertexAttribPointer(posAttrib2, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
+
+		GLint texAttrib2 = glGetAttribLocation(program2, "tex");
+		glEnableVertexAttribArray(texAttrib2);
+		glVertexAttribPointer(texAttrib2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*)(3 * sizeof(float)));
+
+
+			static GLint locScale2 = glGetUniformLocation(program2, "Scale");
+			static float Scale2 = 0;
+			glUniform1f(locScale2, Scale2);
+
+			static GLint locX = glGetUniformLocation(program2, "Xsize");
+			glUniform1f(locX, 800.0f);
+			static GLint locY = glGetUniformLocation(program2, "Ysize");
+			glUniform1f(locY, 600.0f);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, color_tex);
+			GLint gli2 = glGetUniformLocation(program2, "colorMap1");
+			glUniform1i(gli2, 0);//set colormap value 0
+
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, bw_tex);
+			GLint gli3 = glGetUniformLocation(program2, "bnwMap1");
+			glUniform1i(gli3, 1);//set colormap value 1
+
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D,depth_tex);
+			GLint gli4 = glGetUniformLocation(program2, "depthMap1");
+			glUniform1i(gli4, 2);//set colormap value 2
+
+			glm::mat4 mat_2 = glm::mat4(1.0f);
+			glUniformMatrix4fv(posAttrib2, 1, GL_FALSE, glm::value_ptr(mat_2));
+
+			
+			glDrawArrays(GL_QUADS, 0, 4);
+			glBindTexture(GL_TEXTURE_2D, 0);
+			glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+		glUseProgram(0);
 
 		SwapBuffers(dvcContext);
 	}
 
 
 
-
 	glDeleteBuffers(1,&VertexVBOID);
+	glDeleteFramebuffers(1, &framebuffer);
 
 	return 0;
 }
@@ -456,8 +605,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT userMessage, WPARAM wParam, LPARAM lPar
 			DestroyWindow(hWnd);
 		}
 
-
 		program1 = CreateCustomProgram(vertexShaderSrc, fragmentShaderSrc_N1);
+		program2 = CreateCustomProgram(vertexShaderSrc, fragmentShaderSrc_N2);
+
 		glViewport(0, 0, 800, 600);
 		return 0;
 
@@ -473,6 +623,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT userMessage, WPARAM wParam, LPARAM lPar
 		wglDeleteContext(rdrContext);
 
 		glDeleteProgram(program1);
+		glDeleteProgram(program2);
 		PostQuitMessage(0);
 		return 0;
 

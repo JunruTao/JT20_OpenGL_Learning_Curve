@@ -4,7 +4,6 @@
 #include <GL/glew.h>
 #include <SOIL/SOIL.h>
 
-
 #include "glm/glm.hpp"
 #include "glm/common.hpp"
 #include "glm/ext.hpp"
@@ -12,16 +11,13 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 
-
 #include <thread>
 #include <chrono>
 
-static GLuint program1 = 0;
-static GLuint program2 = 0;
+
 
 
 #define GLSL(src) "#version 440\n" #src
-void shaderAttach(GLuint program, GLenum type, char* shaderSource = NULL);
 
 const char* vertexShaderSrc = GLSL(
 	in vec3 pos;
@@ -46,7 +42,6 @@ const char* fragmentShaderSrc_N1 = GLSL(
 	uniform sampler2D colorMap0;
 	out vec4 FragColor;
 	
-
 	void main()
 	{
 		vec2 temp = texOut.yx;
@@ -94,6 +89,9 @@ void main()
 );
 
 
+static GLuint program1 = 0;
+static GLuint program2 = 0;
+
 HDC dvcContext; //where to store pixel data
 HGLRC rdrContext; //handle to OpenGL context
 
@@ -103,8 +101,6 @@ LPCWSTR JT_MAIN_WIN_NAME = L"JT20 Test Window"; //  <---- Used in the *Creation*
 LPCWSTR parentCapTitle = L"JT-2020 First Window"; //  <---- Used in the *CAPTION*(Text on the window) of {_parent_window_}
 LPCWSTR Error01 = L"Error 01: RegisterClassW issue tend to ";
 LPCWSTR Error02 = L"Error 02: ParentWindowCreateW issue to tend to"; //  <---- *Error handling message* of {_parent_window_}
-
-
 
 
 GLuint ShaderCompile(const GLenum shader_type, const char* source)
@@ -186,8 +182,6 @@ GLuint CreateCustomProgram(const char* VertexSource, const char* FragmentSource)
 	return nprogram;
 
 }
-
-
 
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -339,8 +333,6 @@ int WINAPI WinMain(
 		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-
-		
 			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, framebuffer);
 
 				glEnable(GL_DEPTH_TEST);
