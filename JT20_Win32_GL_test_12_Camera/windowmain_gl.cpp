@@ -15,7 +15,7 @@
 #include <chrono>
 #include <cmath>
 
-
+#include <ShaderProgram.h>
 
 
 #define GLSL(src) "#version 440\n" #src
@@ -24,10 +24,7 @@ const char* vertexShaderSrc = GLSL(
 	in vec3 pos;
     in vec2 tex;
 
-
 	out vec2 texOut;
-	out vec3 normalOut;
-	out vec3 texOut;
 	uniform float Scale;
 	uniform mat4 MVP;
 
@@ -38,32 +35,121 @@ const char* vertexShaderSrc = GLSL(
 	}
 );
 
-//light example(hard coded)
 const char* fragmentShaderSrc2 = GLSL(
 	uniform float Scale;
 	uniform sampler2D colorMap0;
+	uniform sampler2D normalMap0;
 
-	in vec2 texOut;
-	in vec3 normalOut;
-	in vec3 posOut;
 
+	in vec2 texOut2;
 	layout(location = 0) out vec4 FragColor0;
 
 void main() {
-	vec3 eye = vec3(0, 0, 1);
-	vec3 viewDir = normalize(eye - pos);
+	vec3 normal = texture(normalMap0, texOut).rgb;
 
-	vec3 lightpos = vec3(1, 1, 1);//som oblique rays
-	vec3 lightDir = normalize(pos - lightpos);
-	vec3 reflectDir = reflect(-lightDir, normal);  //notice that we find the reflection along plane (plane normal is provided)
-
-	float intensity = pow(max(dot(viewDir, reflectDir), 0.0), 5);
-
-	gl_FragData[0] = texture(colorMap0, texOut) + vec4(intensity, intensity, intensity, 0);
+	gl_FragData[0] = texture(colorMap0, texOut2);
 });
 
 
+
+
+const char* GemoetryShaderSrc2 = GLSL(
+	layout(triangles) in;
+    layout(triangle_strip, max_vertices = 300) out;
+	
+
+    in vec2 texOut[];
+    out vec2 texOut2;
+void main() {
+
+	vec4 vertex[3];
+	vertex[0] = gl_in[0].gl_Position;
+	vertex[1] = gl_in[1].gl_Position;
+	vertex[2] = gl_in[2].gl_Position;
+
+	texOut2 = texOut[0];
+	gl_Position = vertex[0];
+	EmitVertex();
+
+	texOut2 = texOut[1];
+	gl_Position = vertex[1];
+	EmitVertex();
+
+	texOut2 = texOut[2];
+	gl_Position = vertex[2];
+	EmitVertex();
+
+	EndPrimitive();
+
+	texOut2 = texOut[0];
+	gl_Position = vertex[0] + vec4(0.2f, 0, 0, 0);
+	EmitVertex();
+
+	texOut2 = texOut[1];
+	gl_Position = vertex[1] + vec4(0.2f, 0, 0, 0);
+	EmitVertex();
+
+	texOut2 = texOut[2];
+	gl_Position = vertex[2] + vec4(0.2f, 0, 0, 0);
+	EmitVertex();
+}
+);
+
+
+const char* GemoetryShaderSrc = GLSL(
+	layout(points) in;
+    layout(triangle_strip, max_vertices = 300) out;
+
+	uniform mat4 MVP;
+    in vec2 texOut[];
+    out vec2 texOut2;
+void main() {
+
+	vec4 O_pt = gl_in[0].gl_Position;
+
+	texOut2 = vec2(0.0f,0.0f); vec4 v1 = (O_pt + vec4(0, 0, 0.2f, 0)) * MVP;
+	gl_Position = v1; EmitVertex();
+	texOut2 = vec2(1.0f, 1.0f); vec4 v2 = (O_pt + vec4(-0.2f, 0, -0.1f, 0))* MVP;
+	gl_Position = v2; EmitVertex();
+	texOut2 = vec2(1.0f, 0.0f); vec4 v3 = (O_pt + vec4(0.2f, 0, -0.1f, 0))* MVP;
+	gl_Position = v3; EmitVertex();
+	EndPrimitive();
+
+	vec3 up = cross(v1.xyz - v2.xyz, v3.xyz - v2.xyz);
+	vec3 v4temp = O_pt.xyz + normalize(up)*0.3f;
+	vec4 v4 = vec4(v4temp, 1);
+
+	texOut2 = vec2(0.0f, 0.0f);
+	gl_Position = v1; EmitVertex();
+	texOut2 = vec2(1.0f, 1.0f);
+	gl_Position = v2; EmitVertex();
+	texOut2 = vec2(1.0f, 0.0f);
+	gl_Position = v4; EmitVertex();
+	EndPrimitive();
+
+	texOut2 = vec2(0.0f, 0.0f);
+	gl_Position = v2; EmitVertex();
+	texOut2 = vec2(1.0f, 1.0f);
+	gl_Position = v3; EmitVertex();
+	texOut2 = vec2(1.0f, 0.0f);
+	gl_Position = v4; EmitVertex();
+	EndPrimitive();
+
+	texOut2 = vec2(0.0f, 0.0f);
+	gl_Position = v3; EmitVertex();
+	texOut2 = vec2(1.0f, 1.0f);
+	gl_Position = v1; EmitVertex();
+	texOut2 = vec2(1.0f, 0.0f);
+	gl_Position = v4; EmitVertex();
+	EndPrimitive();
+
+}
+);
+
+
 static GLuint program1 = 0;
+static GLuint program2 = 0;
+
 
 HDC dvcContext; //where to store pixel data
 HGLRC rdrContext; //handle to OpenGL context
@@ -75,86 +161,6 @@ LPCWSTR parentCapTitle = L"JT-2020 First Window"; //  <---- Used in the *CAPTION
 LPCWSTR Error01 = L"Error 01: RegisterClassW issue tend to ";
 LPCWSTR Error02 = L"Error 02: ParentWindowCreateW issue to tend to"; //  <---- *Error handling message* of {_parent_window_}
 
-
-GLuint ShaderCompile(const GLenum shader_type, const char* source)
-{
-	/* create shader object, set the source, and compile */
-	GLuint shader = glCreateShader(shader_type);
-	GLint length = strlen(source);
-	glShaderSource(shader, 1, (const char**)&source, &length);
-	glCompileShader(shader);
-
-	GLint result = 0;
-	/* make sure the compilation was successful */
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
-	if (result == GL_FALSE) {
-		char* log;
-
-		/* get the shader info log */
-		glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-		log = (char*)malloc(length);
-		glGetShaderInfoLog(shader, length, &result, log);
-
-		/* print an error message and the info log */
-		//printf("shaderCompileFromFile(): Unable to compile %s\n", log);
-		MessageBoxA(hWnd, log, "shader error", 0);
-		free(log);
-
-		glDeleteShader(shader);
-		return 0;
-	}
-	return shader;
-}
-
-
-/*
- * Compiles and attaches a shader of the
- * given type to the given program object.
- */
-void shaderAttach(GLuint program, GLenum type, const char* shaderSource = NULL)
-{
-	/* compile the shader */
-	GLuint shader = ShaderCompile(type, shaderSource);
-	if (shader != 0) {
-		/* attach the shader to the program */
-		glAttachShader(program, shader);
-
-		/* delete the shader - it won't actually be
-		 * destroyed until the program that it's attached
-		 * to has been destroyed */
-		glDeleteShader(shader);
-	}
-}
-
-
-GLuint CreateCustomProgram(const char* VertexSource, const char* FragmentSource)
-{
-
-	GLuint nprogram = glCreateProgram();
-	shaderAttach(nprogram, GL_VERTEX_SHADER, VertexSource);
-	shaderAttach(nprogram, GL_FRAGMENT_SHADER, FragmentSource);
-	glLinkProgram(nprogram);
-
-	GLint result = 0;
-
-	glGetProgramiv(nprogram, GL_LINK_STATUS, &result);
-	if (result == GL_FALSE) {
-		GLint length;
-		char* log;
-		/* get the program info log */
-		glGetProgramiv(nprogram, GL_INFO_LOG_LENGTH, &length);
-		log = (char*)malloc(length);
-		glGetProgramInfoLog(nprogram, length, &result, log);
-		/* print an error message and the info log */
-		MessageBoxA(hWnd, log, "sceneInit(): Program linking failed:", 0);
-		free(log);
-		/* delete the program */
-		glDeleteProgram(nprogram);
-		MessageBoxA(hWnd, "failed", "Linking shader program", 0);
-	}
-	return nprogram;
-
-}
 
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -222,27 +228,14 @@ int WINAPI WinMain(
 
 	static float bsize = 0.5f;
 
-	MyVertex pvertex[24] =
+	MyVertex pvertex[3] =
 	{
 		//front
-		{-bsize,bsize,bsize,0.0f,0.0f},{bsize,bsize,bsize,0.0f,1.0f},
-		{bsize,-bsize,bsize,1.0f,1.0f},{-bsize,-bsize,bsize,1.0f,0.0f},
-		//back
-		{-bsize,bsize,-bsize,0.0f,0.0f},{bsize,bsize,-bsize,0.0f,1.0f},
-		{bsize,-bsize,-bsize,1.0f,1.0f},{-bsize,-bsize,-bsize,1.0f,0.0f},
-		//top
-		{-bsize,bsize,bsize,0.0f,0.0f},{bsize,bsize,bsize,0.0f,1.0f},
-		{bsize,bsize,-bsize,1.0f,1.0f},{-bsize,bsize,-bsize,1.0f,0.0f},
-		//bottom
-		{-bsize,-bsize,bsize,0.0f,0.0f},{bsize,-bsize,bsize,0.0f,1.0f},
-		{bsize,-bsize,-bsize,1.0f,1.0f},{-bsize,-bsize,-bsize,1.0f,0.0f},
-		//left
-		{-bsize,bsize,-bsize,0.0f,0.0f},{-bsize,bsize,bsize,0.0f,1.0f},
-		{-bsize,-bsize,bsize,1.0f,1.0f},{-bsize,-bsize,-bsize,1.0f,0.0f},
-		//right
-		{bsize,bsize,-bsize,0.0f,0.0f},{bsize,bsize,bsize,0.0f,1.0f},
-		{bsize,-bsize,bsize,1.0f,1.0f},{bsize,-bsize,-bsize,1.0f,0.0f},
+		{-bsize,0, bsize,0.0,0.0f},{bsize,1,bsize,1.0f,1.0f},
+		{bsize,0, -bsize,0.0f,1.0f}
 	};
+
+	//MyVertex pvertex[1] = { {0,0,0} };
 
 	GLuint VertexVBOID = 0;
 	glGenBuffers(1, &VertexVBOID);
@@ -264,6 +257,9 @@ int WINAPI WinMain(
 	
 	bool running = true;
 
+
+	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
 	/*[PART 2.3]----THE 'BIG WHILE LOOP'----*/
 	while (running)
 	{
@@ -284,11 +280,10 @@ int WINAPI WinMain(
 
 		//drawing the background
 		glClearDepth(1.0f);
-		glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			glUseProgram(program1);
-
 
 				glBindBuffer(GL_ARRAY_BUFFER, VertexVBOID);
 
@@ -304,15 +299,20 @@ int WINAPI WinMain(
 				static GLint locScale = glGetUniformLocation(program1, "Scale");
 
 				static float Scale1 =  0;
-				static float Dir = 1;
+				static float Dir = 0.1;
 				Scale1 += Dir;
 				glUniform1f(locScale, Scale1);
 
+				auto view = glm::lookAt(glm::vec3(10 - 0, 10-0, 1), glm::vec3(0, 0, 0), glm::vec3(0.0, 1.0, 0.0));
+				view = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.f) * view;
 
+
+				GLint hmvp = glGetUniformLocation(program1, "MVP");
 				glm::mat4 mat = glm::mat4(1.0f);
-				mat = glm::rotate<float>(mat, glm::radians(Scale1*2.0f), glm::vec3(1, 1, 0));
-				mat = glm::scale(mat, glm::vec3(sinf(Scale1*0.08f)*0.4+0.8f, 0.9f, sinf(Scale1 * 0.18f) * 0.4 + 0.8f));
-				glUniformMatrix4fv(posAttrib, 1, GL_FALSE, glm::value_ptr(mat));
+				//mat = glm::rotate<float>(mat, Scale1,glm::vec3(1.0f,1.0f,0));
+
+				view = view *mat;
+				glUniformMatrix4fv(hmvp, 1, GL_FALSE, glm::value_ptr(view));
 
 				//finally drawing the geometry
 
@@ -321,11 +321,11 @@ int WINAPI WinMain(
 				GLint gli = glGetUniformLocation(program1, "colorMap0");
 				glUniform1i(gli, 0);//set colormap value 0
 
-				glDrawArrays(GL_QUADS, 0, 24);
+				glDrawArrays(GL_TRIANGLES, 0, 3);
 				glBindTexture(GL_TEXTURE_2D, 0);
 				glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-				glUseProgram(0);
+			glUseProgram(0);
 
 
 		SwapBuffers(dvcContext);
@@ -334,7 +334,6 @@ int WINAPI WinMain(
 
 
 	glDeleteBuffers(1,&VertexVBOID);
-	glDeleteFramebuffers(1, &framebuffer);
 
 	return 0;
 }
@@ -386,14 +385,24 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT userMessage, WPARAM wParam, LPARAM lPar
 			DestroyWindow(hWnd);
 		}
 
-		program1 = CreateCustomProgram(vertexShaderSrc, fragmentShaderSrc2);
-
+		program1 = CreateCustomProgram(vertexShaderSrc, fragmentShaderSrc2, GemoetryShaderSrc2);
+		program2 = CreateCustomProgram(vertexShaderSrc, fragmentShaderSrc2, GemoetryShaderSrc);
 		glViewport(0, 0, 800, 600);
 		return 0;
 
 
 	}break;
 
+	case WM_KEYDOWN:
+	{
+
+	}break;
+
+	case WM_LBUTTONDOWN:
+	{
+
+	}
+	break;
 
 	case WM_DESTROY:
 	{
