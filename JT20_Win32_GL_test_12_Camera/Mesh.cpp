@@ -138,7 +138,7 @@ void Mesh::AttributeBinding(GLuint ProgramID, const char* pos, const char* tex )
 void Mesh::Draw() 
 {
 	glBindBuffer(GL_ARRAY_BUFFER, VertVBO_id);
-		glDrawArrays(GL_TRIANGLES, 0, _vertices.size());
+		glDrawArrays(GL_TRIANGLES_ADJACENCY, 0, _vertices.size());
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 

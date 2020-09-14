@@ -94,6 +94,7 @@ int WINAPI WinMain(
 
 	mesh1->LoadFromObjFile("C:/Users/1/Desktop/test.obj");
 	mesh2->LoadFromObjFile("C:/Users/1/Desktop/ground.obj");
+
 	GLuint texture = SOIL_load_OGL_texture(
 		"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_12_Camera/people.png", 
 		SOIL_LOAD_AUTO, 
@@ -145,41 +146,43 @@ int WINAPI WinMain(
 
 		//drawing the background
 		glClearDepth(1.0f);
-		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		glClearColor(1.0f, 0.2f, 0.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			glUseProgram(program1);
 
+			GLint uniform_model1 = glGetUniformLocation(program1, "model");
+			GLint uniform_perspective = glGetUniformLocation(program1, "perspective");
+			GLint attrib_colormap1 = glGetUniformLocation(program1, "colorMap0");
+			glUniform1i(attrib_colormap1, 0);//set colormap value 0c
+			glm::mat4 mat_pers = cam1->GetCameraMatrix(&wndWidth, &wndHeight);
+			glUniformMatrix4fv(uniform_perspective, 1, GL_FALSE, glm::value_ptr(mat_pers));
+
+
+			static float Scale1 = 0;
+			static float Dir = 0.02f;
+			Scale1 += Dir;
+
 				mesh1->AttributeBinding(program1);
 
-				//static GLint locScale = glGetUniformLocation(program1, "Scale");
-				static float Scale1 =  0;
-				static float Dir = 0.02f;
-				Scale1 += Dir;
-				//glUniform1f(locScale, Scale1);
-
-				GLint hmvp = glGetUniformLocation(program1, "MVP");
-				glm::mat4 mat = glm::mat4(1.0f);
-				mat = glm::rotate<float>(mat, Scale1,glm::vec3(0.0f,1.0f,0));
-				glm::mat4 view = cam1->GetCameraMatrix(&wndWidth,&wndHeight) * mat;
-				glUniformMatrix4fv(hmvp, 1, GL_FALSE, glm::value_ptr(view));
-
-				//finally drawing the geometry
+					glm::mat4 mat = glm::mat4(1.0f);
+					mat = glm::rotate<float>(mat, Scale1,glm::vec3(0.0f,1.0f,0));
+					glUniformMatrix4fv(uniform_model1, 1, GL_FALSE, glm::value_ptr(mat));
 
 				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, texture);
-				GLint gli = glGetUniformLocation(program1, "colorMap0");
-				glUniform1i(gli, 0);//set colormap value 0
-
 
 				mesh1->Draw();
 
-
+				
 				glBindTexture(GL_TEXTURE_2D, 0);
-				mesh2->AttributeBinding(program1);
-				glm::mat4 mat2 = glm::mat4(1.0f);
-				glm::mat4 view2 = cam1->GetCameraMatrix(&wndWidth, &wndHeight) * mat2;
-				glUniformMatrix4fv(hmvp, 1, GL_FALSE, glm::value_ptr(view2));
+
+
+					mesh2->AttributeBinding(program1);
+					glm::mat4 mat2 = glm::mat4(1.0f);
+					glUniformMatrix4fv(uniform_model1, 1, GL_FALSE, glm::value_ptr(mat2));
+
+				glActiveTexture(GL_TEXTURE0);
 				glBindTexture(GL_TEXTURE_2D, texture2);
 
 				mesh2->Draw();
