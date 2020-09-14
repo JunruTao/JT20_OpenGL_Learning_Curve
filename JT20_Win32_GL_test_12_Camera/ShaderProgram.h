@@ -5,32 +5,29 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
+#include <exception>
 #include <string>
 #include <GL/glew.h>
 
 
-std::string ReadShader(const char* filename)
+std::string ReadShader(const char* filePath)
 {
-	std::stringstream ss;
-	std::ifstream file;
+	std::string content;
+	std::ifstream fileStream(filePath, std::ios::in);
 
-	try
-	{
-		file.open(filename, std::ios::in);
-
-		if (!file.fail())
-		{
-			// Using a std::stringstream is easier than looping through each line of the file
-			ss << file.rdbuf();
-		}
-
-		file.close();
+	if (!fileStream.is_open()) {
+		MessageBoxA(NULL, "Could not read file ", "file reading error", 0);
+		return "";
 	}
-	catch (std::exception ex)
-	{
-		std::cerr << "Error reading shader filename!" << std::endl;
+
+	std::string line = "";
+	while (!fileStream.eof()) {
+		std::getline(fileStream, line);
+		content.append(line + "\n");
 	}
-	return ss.str();
+
+	fileStream.close();
+	return content;
 }
 
 
@@ -40,11 +37,12 @@ std::string ReadShader(const char* filename)
 GLuint ShaderCompile(const GLenum shader_type, const char* filename)
 {
 	/* create shader object, set the source, and compile */
+	std::string scode = ReadShader(filename);
+	const char* source = scode.c_str();
 
-	const char* source = ReadShader(filename).c_str();
 	GLuint shader = glCreateShader(shader_type);
 	GLint length = strlen(source);
-	glShaderSource(shader, 1, (const char**)&source, &length);
+	glShaderSource(shader, 1, (const char**)&source, NULL);
 	glCompileShader(shader);
 
 	GLint result = 0;
@@ -60,7 +58,7 @@ GLuint ShaderCompile(const GLenum shader_type, const char* filename)
 
 		/* print an error message and the info log */
 		//printf("shaderCompileFromFile(): Unable to compile %s\n", log);
-		MessageBoxA(hWnd, log, "shader error", 0);
+		MessageBoxA(NULL, log, "shader error", 0);
 		free(log);
 
 		glDeleteShader(shader);
@@ -90,13 +88,13 @@ void shaderAttach(GLuint program, GLenum type, const char* shaderSource = NULL)
 }
 
 
-GLuint CreateCustomProgram(const char* VertexSource, const char* FragmentSource, const char* GeoShader)
+GLuint CreateCustomProgram(const char* VertexPath, const char* FragmentPath, const char* GeoPath)
 {
 
 	GLuint nprogram = glCreateProgram();
-	shaderAttach(nprogram, GL_VERTEX_SHADER, VertexSource);
-	shaderAttach(nprogram, GL_FRAGMENT_SHADER, FragmentSource);
-	shaderAttach(nprogram, GL_GEOMETRY_SHADER, GeoShader);
+	shaderAttach(nprogram, GL_VERTEX_SHADER, VertexPath);
+	shaderAttach(nprogram, GL_FRAGMENT_SHADER, FragmentPath);
+	shaderAttach(nprogram, GL_GEOMETRY_SHADER, GeoPath);
 	glLinkProgram(nprogram);
 
 	GLint result = 0;
@@ -110,11 +108,11 @@ GLuint CreateCustomProgram(const char* VertexSource, const char* FragmentSource,
 		log = (char*)malloc(length);
 		glGetProgramInfoLog(nprogram, length, &result, log);
 		/* print an error message and the info log */
-		MessageBoxA(hWnd, log, "sceneInit(): Program linking failed:", 0);
+		MessageBoxA(NULL, log, "sceneInit(): Program linking failed:", 0);
 		free(log);
 		/* delete the program */
 		glDeleteProgram(nprogram);
-		MessageBoxA(hWnd, "failed", "Linking shader program", 0);
+		MessageBoxA(NULL, "failed", "Linking shader program", 0);
 	}
 	return nprogram;
 

@@ -11,160 +11,44 @@
 #include "glm/geometric.hpp"
 #include "glm/matrix.hpp"
 
+#include <vector>
 #include <thread>
 #include <chrono>
 #include <cmath>
 
-#include <ShaderProgram.h>
+#include "ShaderProgram.h"
+#include "Camera.h"
+#include "Mesh.h"
 
 
-#define GLSL(src) "#version 440\n" #src
-
-const char* vertexShaderSrc = GLSL(
-	in vec3 pos;
-    in vec2 tex;
-
-	out vec2 texOut;
-	uniform float Scale;
-	uniform mat4 MVP;
-
-	void main()
-	{
-		gl_Position = vec4(pos.xyz, 1.0)*MVP;
-		texOut = tex;
-	}
-);
-
-const char* fragmentShaderSrc2 = GLSL(
-	uniform float Scale;
-	uniform sampler2D colorMap0;
-	uniform sampler2D normalMap0;
-
-
-	in vec2 texOut2;
-	layout(location = 0) out vec4 FragColor0;
-
-void main() {
-	vec3 normal = texture(normalMap0, texOut).rgb;
-
-	gl_FragData[0] = texture(colorMap0, texOut2);
-});
-
-
-
-
-const char* GemoetryShaderSrc2 = GLSL(
-	layout(triangles) in;
-    layout(triangle_strip, max_vertices = 300) out;
-	
-
-    in vec2 texOut[];
-    out vec2 texOut2;
-void main() {
-
-	vec4 vertex[3];
-	vertex[0] = gl_in[0].gl_Position;
-	vertex[1] = gl_in[1].gl_Position;
-	vertex[2] = gl_in[2].gl_Position;
-
-	texOut2 = texOut[0];
-	gl_Position = vertex[0];
-	EmitVertex();
-
-	texOut2 = texOut[1];
-	gl_Position = vertex[1];
-	EmitVertex();
-
-	texOut2 = texOut[2];
-	gl_Position = vertex[2];
-	EmitVertex();
-
-	EndPrimitive();
-
-	texOut2 = texOut[0];
-	gl_Position = vertex[0] + vec4(0.2f, 0, 0, 0);
-	EmitVertex();
-
-	texOut2 = texOut[1];
-	gl_Position = vertex[1] + vec4(0.2f, 0, 0, 0);
-	EmitVertex();
-
-	texOut2 = texOut[2];
-	gl_Position = vertex[2] + vec4(0.2f, 0, 0, 0);
-	EmitVertex();
-}
-);
-
-
-const char* GemoetryShaderSrc = GLSL(
-	layout(points) in;
-    layout(triangle_strip, max_vertices = 300) out;
-
-	uniform mat4 MVP;
-    in vec2 texOut[];
-    out vec2 texOut2;
-void main() {
-
-	vec4 O_pt = gl_in[0].gl_Position;
-
-	texOut2 = vec2(0.0f,0.0f); vec4 v1 = (O_pt + vec4(0, 0, 0.2f, 0)) * MVP;
-	gl_Position = v1; EmitVertex();
-	texOut2 = vec2(1.0f, 1.0f); vec4 v2 = (O_pt + vec4(-0.2f, 0, -0.1f, 0))* MVP;
-	gl_Position = v2; EmitVertex();
-	texOut2 = vec2(1.0f, 0.0f); vec4 v3 = (O_pt + vec4(0.2f, 0, -0.1f, 0))* MVP;
-	gl_Position = v3; EmitVertex();
-	EndPrimitive();
-
-	vec3 up = cross(v1.xyz - v2.xyz, v3.xyz - v2.xyz);
-	vec3 v4temp = O_pt.xyz + normalize(up)*0.3f;
-	vec4 v4 = vec4(v4temp, 1);
-
-	texOut2 = vec2(0.0f, 0.0f);
-	gl_Position = v1; EmitVertex();
-	texOut2 = vec2(1.0f, 1.0f);
-	gl_Position = v2; EmitVertex();
-	texOut2 = vec2(1.0f, 0.0f);
-	gl_Position = v4; EmitVertex();
-	EndPrimitive();
-
-	texOut2 = vec2(0.0f, 0.0f);
-	gl_Position = v2; EmitVertex();
-	texOut2 = vec2(1.0f, 1.0f);
-	gl_Position = v3; EmitVertex();
-	texOut2 = vec2(1.0f, 0.0f);
-	gl_Position = v4; EmitVertex();
-	EndPrimitive();
-
-	texOut2 = vec2(0.0f, 0.0f);
-	gl_Position = v3; EmitVertex();
-	texOut2 = vec2(1.0f, 1.0f);
-	gl_Position = v1; EmitVertex();
-	texOut2 = vec2(1.0f, 0.0f);
-	gl_Position = v4; EmitVertex();
-	EndPrimitive();
-
-}
-);
-
+const char* vertShader_PATH = 
+"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_12_Camera/shaders/vShader_01.glsl";
+const char* fragShader_PATH =
+"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_12_Camera/shaders/fShader_01.glsl";
+const char* geomShader_PATH =
+"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_12_Camera/shaders/gShader_01.glsl";
 
 static GLuint program1 = 0;
 static GLuint program2 = 0;
-
+static bool running = true;
 
 HDC dvcContext; //where to store pixel data
 HGLRC rdrContext; //handle to OpenGL context
 
-/*[Part1.1][Create a Handle to window]*/
-HWND hWnd; //  <---- This is the *Handle* of the {_parent_window_}
-LPCWSTR JT_MAIN_WIN_NAME = L"JT20 Test Window"; //  <---- Used in the *Creation* of {_parent_window_}
-LPCWSTR parentCapTitle = L"JT-2020 First Window"; //  <---- Used in the *CAPTION*(Text on the window) of {_parent_window_}
+
+HWND hWnd;
+LPCWSTR JT_MAIN_WIN_NAME = L"JT20 OpenGL-Win32 x64";
+LPCWSTR parentCapTitle = L"JT-2020 GLWin";
 LPCWSTR Error01 = L"Error 01: RegisterClassW issue tend to ";
-LPCWSTR Error02 = L"Error 02: ParentWindowCreateW issue to tend to"; //  <---- *Error handling message* of {_parent_window_}
+LPCWSTR Error02 = L"Error 02: ParentWindowCreateW issue to tend to";
+static int wndWidth = 800;
+static int wndHeight = 600;
 
-
+static glm::vec3 campos = { -1.5f,0.5f,0.0f };
+static glm::vec3 mView = { 0.0f,0.0f,0.0f };
+static float speed = 0.05f;
 
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-
 
 /*--------------[Windows Main function]--------------*/
 /*[Part1.4]---WinMain Inputs*/
@@ -174,26 +58,15 @@ int WINAPI WinMain(
 	PSTR szCmdLine,
 	int iCmdShow)
 {
-
-	/*[PART 2.1]----CREATE WINDOW CLASS STRUCTURE----*/
-	MSG msg = {}; // Messsage
-
-	/*NEW*/WNDCLASS winClass = {};
-	/*NEW*/winClass.lpfnWndProc = WndProc;
-	/*NEW*/winClass.hInstance = hInstance;
-	/*NEW*/winClass.lpszClassName = JT_MAIN_WIN_NAME;
-
-
-	/*[Register Class window]*/
+	MSG msg = {};
+	WNDCLASS winClass = {};
+	winClass.lpfnWndProc = WndProc;
+	winClass.hInstance = hInstance;
+	winClass.lpszClassName = JT_MAIN_WIN_NAME;
 	if (!RegisterClass(&winClass))
 	{
 		MessageBoxW(NULL, Error01, JT_MAIN_WIN_NAME, MB_ICONERROR);
 	}
-
-
-
-	/*[PART 2.2]----CREATING NEW WINDOW----*/
-	/*NEW - Updates According to Win32 website -- Using CreateWindowEx*/
 	hWnd = CreateWindowEx(
 		0,                          //Optional Window style 
 		JT_MAIN_WIN_NAME,           //Window Class name
@@ -201,50 +74,28 @@ int WINAPI WinMain(
 		WS_OVERLAPPEDWINDOW,        //Window Style(WS_EX_OVER...) - will show no closing buttons
 		CW_USEDEFAULT,              //Window Pos.Start X,
 		CW_USEDEFAULT,              //Window Pos.Start Y,
-		800,              //Window Width,
-		600,              //Window Height
+		wndWidth,              //Window Width,
+		wndHeight,              //Window Height
 		NULL,             //Parent Window
 		NULL,            //Menu
 		hInstance,        //Instance handle
 		NULL              //Additional application data
 	);
-
-	if (hWnd == NULL)
-	{
-		MessageBoxW(NULL, Error02, JT_MAIN_WIN_NAME, 0); //The [0] here uType Default for Okay push button
-		return 0;
-	}
-
+	if (hWnd == NULL){ MessageBoxW(NULL, Error02, JT_MAIN_WIN_NAME, 0); return 0; }
 	ShowWindow(hWnd, iCmdShow);
 
 	glEnable(GL_TEXTURE_2D);
 	glEnable(GL_DEPTH_TEST);
 
 
-	struct MyVertex
-	{
-		float x, y, z, u, v;        //Vertex
-	};
+	GameCamera* cam1 = new GameCamera();
+	Mesh* mesh1 = new Mesh();
+	Mesh* mesh2 = new Mesh();
 
-	static float bsize = 0.5f;
-
-	MyVertex pvertex[3] =
-	{
-		//front
-		{-bsize,0, bsize,0.0,0.0f},{bsize,1,bsize,1.0f,1.0f},
-		{bsize,0, -bsize,0.0f,1.0f}
-	};
-
-	//MyVertex pvertex[1] = { {0,0,0} };
-
-	GLuint VertexVBOID = 0;
-	glGenBuffers(1, &VertexVBOID);
-	glBindBuffer(GL_ARRAY_BUFFER, VertexVBOID);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(pvertex), &pvertex[0].x, GL_STATIC_DRAW);
-
-
+	mesh1->LoadFromObjFile("C:/Users/1/Desktop/test.obj");
+	mesh2->LoadFromObjFile("C:/Users/1/Desktop/ground.obj");
 	GLuint texture = SOIL_load_OGL_texture(
-		"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_06_blurscreen/hello.png", 
+		"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_12_Camera/people.png", 
 		SOIL_LOAD_AUTO, 
 		SOIL_CREATE_NEW_ID, 
 		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
@@ -254,11 +105,23 @@ int WINAPI WinMain(
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
-	
-	bool running = true;
+
+	GLuint texture2 = SOIL_load_OGL_texture(
+		"C:/Users/1/Cpp_Tutorials/OpenGL_Projects/JT20_OpenGL_Learning_Curve/JT20_Win32_GL_test_12_Camera/hello2.png",
+		SOIL_LOAD_AUTO,
+		SOIL_CREATE_NEW_ID,
+		SOIL_FLAG_MIPMAPS | SOIL_FLAG_INVERT_Y | SOIL_FLAG_NTSC_SAFE_RGB | SOIL_FLAG_COMPRESS_TO_DXT
+	);
+
+	glBindTexture(GL_TEXTURE_2D, texture2);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 
 
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+
+
+    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
 	/*[PART 2.3]----THE 'BIG WHILE LOOP'----*/
 	while (running)
@@ -278,6 +141,8 @@ int WINAPI WinMain(
 
 		}
 
+		cam1->ProcessInput(&wndWidth, &wndHeight, true);
+
 		//drawing the background
 		glClearDepth(1.0f);
 		glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -285,33 +150,18 @@ int WINAPI WinMain(
 
 			glUseProgram(program1);
 
-				glBindBuffer(GL_ARRAY_BUFFER, VertexVBOID);
+				mesh1->AttributeBinding(program1);
 
-				GLint posAttrib = glGetAttribLocation(program1, "pos");
-				glEnableVertexAttribArray(posAttrib);
-				glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), 0);
-
-				GLint texAttrib = glGetAttribLocation(program1, "tex");
-				glEnableVertexAttribArray(texAttrib);
-				glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (const void*)(3 * sizeof(float)));
-
-
-				static GLint locScale = glGetUniformLocation(program1, "Scale");
-
+				//static GLint locScale = glGetUniformLocation(program1, "Scale");
 				static float Scale1 =  0;
-				static float Dir = 0.1;
+				static float Dir = 0.02f;
 				Scale1 += Dir;
-				glUniform1f(locScale, Scale1);
-
-				auto view = glm::lookAt(glm::vec3(10 - 0, 10-0, 1), glm::vec3(0, 0, 0), glm::vec3(0.0, 1.0, 0.0));
-				view = glm::perspective(45.0f, 4.0f / 3.0f, 0.1f, 100.f) * view;
-
+				//glUniform1f(locScale, Scale1);
 
 				GLint hmvp = glGetUniformLocation(program1, "MVP");
 				glm::mat4 mat = glm::mat4(1.0f);
-				//mat = glm::rotate<float>(mat, Scale1,glm::vec3(1.0f,1.0f,0));
-
-				view = view *mat;
+				mat = glm::rotate<float>(mat, Scale1,glm::vec3(0.0f,1.0f,0));
+				glm::mat4 view = cam1->GetCameraMatrix(&wndWidth,&wndHeight) * mat;
 				glUniformMatrix4fv(hmvp, 1, GL_FALSE, glm::value_ptr(view));
 
 				//finally drawing the geometry
@@ -321,9 +171,18 @@ int WINAPI WinMain(
 				GLint gli = glGetUniformLocation(program1, "colorMap0");
 				glUniform1i(gli, 0);//set colormap value 0
 
-				glDrawArrays(GL_TRIANGLES, 0, 3);
+
+				mesh1->Draw();
+
+
 				glBindTexture(GL_TEXTURE_2D, 0);
-				glBindBuffer(GL_ARRAY_BUFFER, 0);
+				mesh2->AttributeBinding(program1);
+				glm::mat4 mat2 = glm::mat4(1.0f);
+				glm::mat4 view2 = cam1->GetCameraMatrix(&wndWidth, &wndHeight) * mat2;
+				glUniformMatrix4fv(hmvp, 1, GL_FALSE, glm::value_ptr(view2));
+				glBindTexture(GL_TEXTURE_2D, texture2);
+
+				mesh2->Draw();
 
 			glUseProgram(0);
 
@@ -333,11 +192,14 @@ int WINAPI WinMain(
 
 
 
-	glDeleteBuffers(1,&VertexVBOID);
+	delete cam1;
 
 	return 0;
 }
 /*------------------------------------------------- */
+
+
+
 
 
 
@@ -385,9 +247,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT userMessage, WPARAM wParam, LPARAM lPar
 			DestroyWindow(hWnd);
 		}
 
-		program1 = CreateCustomProgram(vertexShaderSrc, fragmentShaderSrc2, GemoetryShaderSrc2);
-		program2 = CreateCustomProgram(vertexShaderSrc, fragmentShaderSrc2, GemoetryShaderSrc);
-		glViewport(0, 0, 800, 600);
+		program1 = CreateCustomProgram(vertShader_PATH, fragShader_PATH, geomShader_PATH);
+		glViewport(0, 0, wndWidth, wndHeight);
+		ShowCursor(FALSE);
 		return 0;
 
 
@@ -395,8 +257,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT userMessage, WPARAM wParam, LPARAM lPar
 
 	case WM_KEYDOWN:
 	{
-
+		if (wParam == VK_ESCAPE) 
+		{
+			running = false;
+		}
 	}break;
+
 
 	case WM_LBUTTONDOWN:
 	{

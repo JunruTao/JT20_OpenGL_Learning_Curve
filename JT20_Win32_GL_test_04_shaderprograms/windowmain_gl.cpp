@@ -213,6 +213,7 @@ int WINAPI WinMain(
 	};
 
 	GLuint VertexVBOID = 0, IndexVBOID = 0, IndexVBOID2 = 0;
+	
 	glGenBuffers(1, &VertexVBOID);
 	glBindBuffer(GL_ARRAY_BUFFER, VertexVBOID);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(pvertex), &pvertex[0].x, GL_STATIC_DRAW);
@@ -271,7 +272,7 @@ int WINAPI WinMain(
 
 		//using the element array to draw
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexVBOID);
-		GLint posAttrib = glGetAttribLocation(program1, "pos");
+		GLint posAttrib = glGetAttribLocation(program1,"pos");
 		glEnableVertexAttribArray(posAttrib);
 		glVertexAttribPointer(posAttrib, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
 
@@ -294,10 +295,15 @@ int WINAPI WinMain(
 
 			//finally drawing the geometry
 			glDrawElements(GL_QUADS, sizeof(point_indices) / sizeof(short), GL_UNSIGNED_SHORT, 0);
+			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+
 		glUseProgram(0);
+		
 
 
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+		
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexVBOID2);
 		//Because the vertex shaders are the same, thus here is no need to bind the IndexVBO again
 		// to the 'Program2' shader program.

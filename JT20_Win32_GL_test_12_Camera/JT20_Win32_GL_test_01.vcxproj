@@ -87,7 +87,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(SolutionDir)/../../ExternalLibraries/GLEW/include;$(SolutionDir)/glm;$(SolutionDir)/soil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)/../../ExternalLibraries/GLEW/include;$(SolutionDir)/glm;$(SolutionDir);$(SolutionDir)/soil;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -144,11 +144,24 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Mesh.cpp" />
     <ClCompile Include="soil\image_dxt.c" />
     <ClCompile Include="soil\image_helper.c" />
     <ClCompile Include="soil\soil.c" />
     <ClCompile Include="soil\stb_image_aug.c" />
     <ClCompile Include="windowmain_gl.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Camera.h" />
+    <ClInclude Include="Mesh.h" />
+    <ClInclude Include="ShaderProgram.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\fShader_01.glsl" />
+    <None Include="shaders\gShader_01.glsl" />
+    <None Include="shaders\gShader_02.glsl" />
+    <None Include="shaders\vShader_01.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
