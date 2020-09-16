@@ -10,6 +10,7 @@ uniform mat4 model;
 
 void main()
 {
-	gl_Position = perspective * model * vec4(pos.xyz, 1.0);
+	//gl_Position = perspective * model * vec4(pos.xyz, 1.0);
+	gl_Position = vec4(pos.xyz, 1.0);
 	texOut = tex;
 }
